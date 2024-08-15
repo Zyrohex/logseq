@@ -32,7 +32,7 @@ on:
         description: 'File sync production mode'
         type: boolean
         required: true
-        default: false
+        default: true
       enable-plugins:
         description: 'Build with plugin system support'
         type: boolean
@@ -42,7 +42,7 @@ on:
         description: 'Build Android App'
         type: boolean
         required: true
-        default: false
+        default: true
   schedule: # Every workday at the 2 P.M. (UTC) we run a scheduled nightly build
     - cron: '0 14 * * MON-FRI'
 
@@ -337,9 +337,22 @@ jobs:
           name: logseq-win64-builds
           path: builds
 
+  # reuse workflow via workflow_call
+  build-android:
+    uses: ./.github/workflows/build-android.yml
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.build-android == 'true' }}
+    with:
+      build-target: "${{ github.event.inputs.build-target }}"
+      # if scheduled, use production mode
+      enable-file-sync-production: "${{ github.event_name == 'schedule' || github.event.inputs.enable-file-sync-production == 'true' }}"
+    secrets:
+      ANDROID_KEYSTORE: "${{ secrets.ANDROID_KEYSTORE }}"
+      ANDROID_KEYSTORE_PASSWORD: "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+      SENTRY_AUTH_TOKEN: "${{ secrets.SENTRY_AUTH_TOKEN }}"
+
   nightly-release:
     if: ${{ github.event_name == 'schedule' || github.event.inputs.build-target == 'nightly' }}
-    needs: [ build-linux-x64, build-linux-arm64, build-windows ]
+    needs: [ build-linux-x64, build-linux-arm64, build-windows, build-android ]
     runs-on: ubuntu-20.04
     steps:
       - name: Download MacOS x64 Artifacts
@@ -419,9 +432,20 @@ jobs:
   release:
     # NOTE: For now, we only have beta channel to be released on Github
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build-target == 'beta' }}
-    needs: [ build-linux-x64, build-linux-arm64, build-windows ]
+    needs: [ build-linux-x64, build-linux-arm64, build-windows, build-android ]
     runs-on: ubuntu-20.04
     steps:
+      - name: Download MacOS x64 Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: logseq-darwin-x64-builds
+          path: ./
+
+      - name: Download MacOS arm64 Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: logseq-darwin-arm64-builds
+          path: ./
 
       - name: Download The Linux x64 Artifacts
         uses: actions/download-artifact@v3
@@ -445,6 +469,13 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: logseq-win64-builds
+          path: ./
+
+      - name: Download Android Artifacts
+        uses: actions/download-artifact@v3
+        if: ${{ github.event_name == 'schedule' || github.event.inputs.build-android == 'true' }}
+        with:
+          name: logseq-android-builds
           path: ./
 
       - name: List files
