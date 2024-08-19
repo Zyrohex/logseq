@@ -17,7 +17,7 @@ on:
       git-ref:
         description: "Release Git Ref (Which branch or tag to build?)"
         required: true
-        default: "master"
+        default: "feat/db"
       is-draft:
         description: 'Draft Release? (Beta only, Nightly will always be a non-draft)'
         type: boolean
@@ -32,7 +32,7 @@ on:
         description: 'File sync production mode'
         type: boolean
         required: true
-        default: true
+        default: false
       enable-plugins:
         description: 'Build with plugin system support'
         type: boolean
@@ -355,17 +355,6 @@ jobs:
     needs: [ build-linux-x64, build-linux-arm64, build-windows ]
     runs-on: ubuntu-20.04
     steps:
-      - name: Download MacOS x64 Artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: logseq-darwin-x64-builds
-          path: ./
-
-      - name: Download MacOS arm64 Artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: logseq-darwin-arm64-builds
-          path: ./
 
       - name: Download The Linux x64 Artifacts
         uses: actions/download-artifact@v3
@@ -379,30 +368,16 @@ jobs:
           name: logseq-linux-arm64-builds
           path: ./
 
-      - name: Download The Windows Artifact (Signed)
-        uses: actions/download-artifact@v3
-        with:
-          name: logseq-win64-signed-builds
-          path: ./
-
       - name: Download The Windows Artifact
         uses: actions/download-artifact@v3
         with:
           name: logseq-win64-builds
           path: ./
 
-      - name: Download Android Artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: logseq-android-builds
-          path: ./
-
       - name: Generate SHA256 checksums
         run: |
-          sha256sum *-darwin-* > SHA256SUMS.txt
           sha256sum *-win-* >> SHA256SUMS.txt
           sha256sum *-linux-* >> SHA256SUMS.txt
-          sha256sum *.apk >> SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: List files
@@ -423,11 +398,9 @@ jobs:
           files: |
             ./SHA256SUMS.txt
             ./*.zip
-            ./*.dmg
             ./*.exe
             ./*.msi
             ./*.AppImage
-            ./*.apk
 
   release:
     # NOTE: For now, we only have beta channel to be released on Github
@@ -435,17 +408,6 @@ jobs:
     needs: [ build-linux-x64, build-linux-arm64, build-windows ]
     runs-on: ubuntu-20.04
     steps:
-      - name: Download MacOS x64 Artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: logseq-darwin-x64-builds
-          path: ./
-
-      - name: Download MacOS arm64 Artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: logseq-darwin-arm64-builds
-          path: ./
 
       - name: Download The Linux x64 Artifacts
         uses: actions/download-artifact@v3
@@ -459,23 +421,10 @@ jobs:
           name: logseq-linux-arm64-builds
           path: ./
 
-      - name: Download The Windows Artifact (Signed)
-        uses: actions/download-artifact@v3
-        with:
-          name: logseq-win64-signed-builds
-          path: ./
-
       - name: Download The Windows Artifact
         uses: actions/download-artifact@v3
         with:
           name: logseq-win64-builds
-          path: ./
-
-      - name: Download Android Artifacts
-        uses: actions/download-artifact@v3
-        if: ${{ github.event_name == 'schedule' || github.event.inputs.build-android == 'true' }}
-        with:
-          name: logseq-android-builds
           path: ./
 
       - name: List files
@@ -493,10 +442,8 @@ jobs:
 
       - name: Generate SHA256 checksums
         run: |
-          sha256sum *-darwin-* > SHA256SUMS.txt
           sha256sum *-win-* >> SHA256SUMS.txt
           sha256sum *-linux-* >> SHA256SUMS.txt
-          sha256sum *.apk >> SHA256SUMS.txt
           sha256sum RELEASES >> SHA256SUMS.txt
           cat SHA256SUMS.txt
 
@@ -514,10 +461,8 @@ jobs:
             ./VERSION
             ./SHA256SUMS.txt
             ./*.zip
-            ./*.dmg
             ./*.exe
             ./*.msi
             ./*.nupkg
             ./RELEASES
             ./*.AppImage
-            ./*.apk
